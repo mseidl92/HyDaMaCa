@@ -1,0 +1,59 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |				
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  10                                   	
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{{
+	format		ascii;
+	class		volVectorField;
+	object		U;
+}}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions	[0 1 -1 0 0 0 0];
+
+internalField	uniform (0. {velocity:.12f} 0.);
+
+boundaryField
+{{
+	minX
+	{{
+		type	slip;
+	}}
+    
+	maxX
+	{{
+		type	slip;
+	}}
+
+	minY
+	{{
+		type	fixedValue;
+		value	uniform (0. {velocity:.12f} 0.);
+	}}
+
+	maxY
+	{{
+		type	zeroGradient;
+	}}    
+
+	minZ
+	{{
+		type	slip;
+	}}
+    
+	maxZ
+	{{
+		type	symmetry;
+	}}
+    
+	stlsurface
+	{{
+		type	fixedValue;
+		value	uniform (0 0 0);
+	}}
+}}
+

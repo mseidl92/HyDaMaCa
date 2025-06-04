@@ -1,0 +1,129 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |				
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  10                                   	
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{{
+	format		ascii;
+	class		dictionary;
+	object		blockMeshDict;
+}}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+convertToMeters 1;
+
+ymin {lb:.12f};
+ymax {ub:.12f};
+neglinner {lb_inner:.12f};
+linner {ub_inner:.12f};
+
+radius {radius:.12f};
+negradius {negative_radius:.12f};
+trigradius {sin45_radius:.12f};
+negtrigradius {negative_sin45_radius:.12f};
+coradius {cos225_radius:.12f};
+negcoradius {negative_cos225_radius:.12f};
+siradius {sin225_radius:.12f};
+negsiradius {negative_sin225_radius:.12f};
+
+ycells {resolution:d};
+radialcellshalf {resolution_half:d};
+radialcellsquarter {resolution_quarter:d};
+
+vertices        
+(
+    ($neglinner $ymin 0         )
+    ($linner    $ymin 0         )
+    ($linner    $ymin $neglinner)
+    ($neglinner $ymin $neglinner)
+    ($neglinner $ymax 0         )
+    ($linner    $ymax 0         )
+    ($linner    $ymax $neglinner)
+    ($neglinner $ymax $neglinner)
+  
+    ($negradius     $ymin 0             )
+    ($radius        $ymin 0             )
+    ($trigradius    $ymin $negtrigradius)
+    ($negtrigradius $ymin $negtrigradius)
+    ($negradius     $ymax 0             )
+    ($radius        $ymax 0             )
+    ($trigradius    $ymax $negtrigradius)
+    ($negtrigradius $ymax $negtrigradius)
+);
+
+blocks          
+(
+    hex ( 0  1  2  3  4  5  6  7) all ($radialcellshalf    $radialcellsquarter $ycells) simpleGrading (1 1 1)
+    hex ( 8  0  3 11 12  4  7 15) all ($radialcellsquarter $radialcellsquarter $ycells) simpleGrading (1 1 1)
+    hex ( 1  9 10  2  5 13 14  6) all ($radialcellsquarter $radialcellsquarter $ycells) simpleGrading (1 1 1)
+    hex ( 2 10 11  3  6 14 15  7) all ($radialcellsquarter $radialcellshalf    $ycells) simpleGrading (1 1 1)
+);
+
+edges           
+(
+    arc 10 11   (0 $ymin $negradius)
+    arc 14 15   (0 $ymax $negradius)
+    arc  8 11   ($negcoradius $ymin $negsiradius)
+    arc 12 15   ($negcoradius $ymax $negsiradius)
+    arc  9 10   ($coradius $ymin $negsiradius)
+    arc 13 14   ($coradius $ymax $negsiradius)
+);
+
+boundary        
+(
+    
+    minY
+    {{
+        type wall;
+	faces
+	( 
+            (0 1 2 3)
+            (8 0 3 11) 
+            (1 9 10 2)
+            (2 10 11 3)
+	);
+    }}
+
+    maxY
+    {{
+        type wall;
+	faces
+	( 
+            (4 5 6 7)
+            (12 4 7 15)
+            (5 13 14 6)
+            (6 14 15 7)
+	);
+    }}
+
+    outside
+    {{
+        type wall;
+	faces
+	( 
+            (8 11 12 15)
+            (11 10 15 14)
+            (10 9 14 13)
+	);
+    }}
+    
+    surface
+    {{
+        type symmetry;
+        faces
+        (
+            (0 1 4 5)
+            (8 0 4 12)
+            (1 9 5 13)
+        );
+    }} 
+);
+
+
+mergePatchPairs 
+(
+);
+

@@ -1,0 +1,133 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |				
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  10                                   	
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{{
+	format		ascii;
+	class		dictionary;
+	object		snappyHexMeshDict;
+}}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+castellatedMesh		true;
+snap			true;
+addLayers		true;
+
+geometry
+{{
+	stlsurface
+	{{
+		type	triSurfaceMesh;
+		file	"object.stl";    
+	}}
+}};
+
+castellatedMeshControls
+{{
+	maxLocalCells		100000;
+	maxGlobalCells		20000000;
+	minRefinementCells	0;
+	maxLoadUnbalance	0.10;
+	nCellsBetweenLevels	3;
+
+	features
+    	(
+    		{{
+			file	"object.eMesh";
+			level	2;
+		}}
+	);
+
+	refinementSurfaces
+	{{
+        	stlsurface
+		{{
+			level	(2 4);
+		}}
+	}}
+
+	resolveFeatureAngle	30;
+	planarAngle		30;
+
+	refinementRegions
+	{{
+        	box
+        	{{
+			mode	inside;
+			levels	(( 1 1 ));
+		}}
+	}}
+
+	locationInMesh			({x_in_mesh:.12f} {y_in_mesh:.12f} {z_in_mesh:.12f});
+	allowFreeStandingZoneFaces	true;
+}}
+
+snapControls
+{{
+	nSmoothPatch		3;
+	tolerance		2.0;
+	nSolveIter		30;
+	nRelaxIter		5;
+	nFeatureSnapIter	10;
+	implicitFeatureSnap	false;
+	explicitFeatureSnap	true;
+	multiRegionFeatureSnap	false;
+}}
+
+addLayersControls
+{{
+	relativeSizes true;
+	expansionRatio 1.2;
+	finalLayerThickness 0.5;
+	minThickness 0.001;
+
+	layers
+	{{
+		stlsurface
+		{{
+			nSurfaceLayers 3;
+		}}
+	}}
+    	nGrow 0;
+
+	featureAngle			130;
+	maxFaceThicknessRatio		0.5;
+	nSmoothSurfaceNormals		1;
+	nSmoothThickness		10;
+	minMedialAxisAngle		90;
+	minMedianAxisAngle		90;
+	maxThicknessToMedialRatio	0.3;
+	nSmoothNormals			3;
+	nMedialAxisIter			10;
+	slipFeatureAngle		30;
+	nRelaxIter			5;
+	nBufferCellsNoExtrude		0;
+	nLayerIter			50;
+	nRelaxedIter			20;
+}}
+
+meshQualityControls
+{{
+	#include "meshQualityDict"
+	relaxed
+	{{
+		maxNonOrtho 75;
+	}}
+
+	nSmoothScale 4;
+	errorReduction 0.75;
+}}
+
+writeFlags
+(
+	scalarLevels
+	layerSets
+	layerFields
+);
+
+mergeTolerance 1e-6;
+

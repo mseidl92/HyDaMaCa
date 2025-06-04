@@ -1,0 +1,27 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |				
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  10                                   	
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{{
+	format		ascii;
+	class		dictionary;
+	object		MRFProperties;
+}}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+zone1
+{{
+	cellZone	all;
+	active		yes;
+
+	nonRotatingPatches (outside minY maxY surface);
+
+	origin		(0 0 0);
+	axis		(0 1 0);
+	omega		constant {angular_velocity:.12f};
+}}
+

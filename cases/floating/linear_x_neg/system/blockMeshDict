@@ -1,0 +1,109 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |				
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  10                                   	
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{{
+	format		ascii;
+	class		dictionary;
+	object		blockMeshDict;
+}}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+convertToMeters 1;
+
+xmin {x_lb:.12f};
+xmax {x_ub:.12f};
+ymin {y_lb:.12f};
+ymax {y_ub:.12f};
+zmin {z_lb:.12f};
+zmax 0.;
+
+xcells {x_resolution:d};
+ycells {y_resolution:d};
+zcells {z_resolution:d};
+
+vertices        
+(
+	($xmin  $ymin  $zmin)
+	($xmax  $ymin  $zmin)
+	($xmax  $ymax  $zmin)
+	($xmin  $ymax  $zmin)
+	($xmin  $ymin  $zmax)
+	($xmax  $ymin  $zmax)
+	($xmax  $ymax  $zmax)
+	($xmin  $ymax  $zmax)
+);
+
+blocks          
+(
+	hex (0 1 2 3 4 5 6 7) ($xcells $ycells $zcells) simpleGrading (1 1 1)
+);
+
+edges           
+(
+);
+
+boundary        
+(
+	minX
+	{{
+		type wall;
+		faces
+		( 
+            		(0 4 7 3)
+		);
+    	}}
+
+	maxX
+	{{
+        	type wall;
+		faces
+		( 
+         		(2 6 5 1)
+		);
+    	}}
+
+	minY
+	{{
+		type wall;
+		faces
+		( 
+      			(1 5 4 0)
+		);
+	}}
+
+	maxY 
+	{{
+		type wall;
+		faces
+		( 
+			(3 7 6 2)
+		);
+	}}
+
+	minZ
+	{{
+		type wall;
+		faces
+		( 
+			(0 3 2 1)
+		);
+	}}
+
+	maxZ
+	{{
+		type symmetry;
+		faces
+		( 
+			(4 5 6 7)
+		);
+	}}
+);
+
+mergePatchPairs 
+(
+);
