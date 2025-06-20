@@ -51,8 +51,9 @@ boundaryField
 
 	maxZ
 	{
-		type	calculated;
-		value	$internalField;
+		type		inletOutlet;
+		inletValue	uniform 0.;
+		value		uniform 0.0001;
 	}
     
 	stlsurface
