@@ -33,7 +33,9 @@ BASE_RESOLUTION = int(30) # number of cells along the base (=non-extended) dimen
 MAX_CFL_NUMBER = 20 # maximum Courant-Friedrichs-Lewy number, lower numbers cause longer runtime but higher quality results.
 
 # evaluation points to estimate first, second, third order component of model
-ANALYSIS_VELOCITIES = {'linear': [.5, 1., 2.], 'rotational': [i * 2*np.pi for i in [.05, .1, .2]]}
+ANALYSIS_VELOCITIES = [np.array((1., .166, .166, .033, .033, .033)),
+                       np.array((2., .333, .333, .066, .066, .066)),
+                       np.array((3., .5, .5, .1, .1, .1))]
 CUTOFF_FRACTION = 0.1 # amount of datapoint from beginning of CFD run to discard
 
 def analyze_model(stl_filepath: str,
@@ -87,7 +89,7 @@ def analyze_model(stl_filepath: str,
         for idx1, motion in enumerate(['linear', 'rotational']):
             for idx2, axis in enumerate(['x', 'y', 'z']):
                 if motion_direction in ['forward', 'both']:
-                    build_case(ANALYSIS_VELOCITIES[motion][0], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                    build_case(ANALYSIS_VELOCITIES[0][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
                     run_case()
                     time, forces, moments = load_force_data()
                     fm_vr1_forward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
@@ -95,7 +97,7 @@ def analyze_model(stl_filepath: str,
                     fm_vr1_forward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
                     fm_vr1_forward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
                 if motion_direction in ['backward', 'both']:
-                    build_case(-ANALYSIS_VELOCITIES[motion][0], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                    build_case(-ANALYSIS_VELOCITIES[0][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
                     run_case()
                     time, forces, moments = load_force_data()
                     fm_vr1_backward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
@@ -108,7 +110,7 @@ def analyze_model(stl_filepath: str,
         for idx1, motion in enumerate(['linear', 'rotational']):
             for idx2, axis in enumerate(['x', 'y', 'z']):
                 if motion_direction in ['forward', 'both']:
-                    build_case(ANALYSIS_VELOCITIES[motion][1], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                    build_case(ANALYSIS_VELOCITIES[1][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
                     run_case()
                     time, forces, moments = load_force_data()
                     fm_vr2_forward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
@@ -116,7 +118,7 @@ def analyze_model(stl_filepath: str,
                     fm_vr2_forward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
                     fm_vr2_forward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
                 if motion_direction in ['backward', 'both']:
-                    build_case(-ANALYSIS_VELOCITIES[motion][1], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                    build_case(-ANALYSIS_VELOCITIES[1][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
                     run_case()
                     time, forces, moments = load_force_data()
                     fm_vr2_backward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
@@ -129,7 +131,7 @@ def analyze_model(stl_filepath: str,
         for idx1, motion in enumerate(['linear', 'rotational']):
             for idx2, axis in enumerate(['x', 'y', 'z']):
                 if motion_direction in ['forward', 'both']:
-                    build_case(ANALYSIS_VELOCITIES[motion][2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                    build_case(ANALYSIS_VELOCITIES[2][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
                     run_case()
                     time, forces, moments = load_force_data()
                     fm_vr3_forward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
@@ -137,7 +139,7 @@ def analyze_model(stl_filepath: str,
                     fm_vr3_forward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
                     fm_vr3_forward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
                 if motion_direction in ['backward', 'both']:
-                    build_case(-ANALYSIS_VELOCITIES[motion][2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                    build_case(-ANALYSIS_VELOCITIES[2][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
                     run_case()
                     time, forces, moments = load_force_data()
                     fm_vr3_backward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
@@ -150,101 +152,61 @@ def analyze_model(stl_filepath: str,
     if model_order == 'first':
         result['linear'] = dict()
         if motion_direction in ['forward', 'both']:
-            fm_vr1_forward_mean[:, :3] = fm_vr1_forward_mean[:, :3] / ANALYSIS_VELOCITIES['linear'][0]
-            fm_vr1_forward_mean[:, 3:] = fm_vr1_forward_mean[:, 3:] / ANALYSIS_VELOCITIES['rotational'][0]
-            fm_vr1_forward_std[:, :3] = fm_vr1_forward_std[:, :3] / ANALYSIS_VELOCITIES['linear'][0]
-            fm_vr1_forward_std[:, 3:] = fm_vr1_forward_std[:, 3:] / ANALYSIS_VELOCITIES['rotational'][0]
+            fm_vr1_forward_mean /= ANALYSIS_VELOCITIES[0]
+            fm_vr1_forward_std /= ANALYSIS_VELOCITIES[0]
             result['linear']['forward'] = {'coefficients': fm_vr1_forward_mean, 'uncertainty': fm_vr1_forward_std}
         if motion_direction in ['backward', 'both']:
-            fm_vr1_backward_mean[:, :3] = fm_vr1_backward_mean[:, :3] / -ANALYSIS_VELOCITIES['linear'][0]
-            fm_vr1_backward_mean[:, 3:] = fm_vr1_backward_mean[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][0]
-            fm_vr1_backward_std[:, :3] = fm_vr1_backward_std[:, :3] / -ANALYSIS_VELOCITIES['linear'][0]
-            fm_vr1_backward_std[:, 3:] = fm_vr1_backward_std[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][0]
+            fm_vr1_backward_mean /= -ANALYSIS_VELOCITIES[0]
+            fm_vr1_backward_std /= ANALYSIS_VELOCITIES[0]
             result['linear']['backward'] = {'coefficients': fm_vr1_backward_mean, 'uncertainty': fm_vr1_backward_std}
 
     if model_order == 'second_only':
         result['quadratic'] = dict()
         if motion_direction in ['forward', 'both']:
-            fm_vr2_forward_mean[:, :3] = fm_vr2_forward_mean[:, :3] / (ANALYSIS_VELOCITIES['linear'][1] ** 2)
-            fm_vr2_forward_mean[:, 3:] = fm_vr2_forward_mean[:, 3:] / (ANALYSIS_VELOCITIES['rotational'][1] ** 2)
-            fm_vr2_forward_std[:, :3] = fm_vr2_forward_std[:, :3] / (ANALYSIS_VELOCITIES['linear'][1] ** 2)
-            fm_vr2_forward_std[:, 3:] = fm_vr2_forward_std[:, 3:] / (ANALYSIS_VELOCITIES['rotational'][1] ** 2)
+            fm_vr2_forward_mean /= ANALYSIS_VELOCITIES[1] ** 2
+            fm_vr2_forward_std /= ANALYSIS_VELOCITIES[1] ** 2
             result['quadratic']['forward'] = {'coefficients': fm_vr2_forward_mean, 'uncertainty': fm_vr2_forward_std}
         if motion_direction in ['backward', 'both']:
-            fm_vr2_backward_mean[:, :3] = fm_vr2_backward_mean[:, :3] / -(ANALYSIS_VELOCITIES['linear'][1] ** 2)
-            fm_vr2_backward_mean[:, 3:] = fm_vr2_backward_mean[:, 3:] / -(ANALYSIS_VELOCITIES['rotational'][1] ** 2)
-            fm_vr2_backward_std[:, :3] = fm_vr2_backward_std[:, :3] / -(ANALYSIS_VELOCITIES['linear'][1] ** 2)
-            fm_vr2_backward_std[:, 3:] = fm_vr2_backward_std[:, 3:] / -(ANALYSIS_VELOCITIES['rotational'][1] ** 2)
+            fm_vr2_backward_mean /= -(ANALYSIS_VELOCITIES[1] ** 2)
+            fm_vr2_backward_std /= ANALYSIS_VELOCITIES[1] ** 2
             result['quadratic']['backward'] = {'coefficients': fm_vr2_backward_mean, 'uncertainty': fm_vr2_backward_std}
 
     if model_order == 'third_only':
         result['cubic'] = dict()
         if motion_direction in ['forward', 'both']:
-            fm_vr3_forward_mean[:, :3] = fm_vr3_forward_mean[:, :3] / (ANALYSIS_VELOCITIES['linear'][2] ** 3)
-            fm_vr3_forward_mean[:, 3:] = fm_vr3_forward_mean[:, 3:] / (ANALYSIS_VELOCITIES['rotational'][2] ** 3)
-            fm_vr3_forward_std[:, :3] = fm_vr3_forward_std[:, :3] / (ANALYSIS_VELOCITIES['linear'][2] ** 3)
-            fm_vr3_forward_std[:, 3:] = fm_vr3_forward_std[:, 3:] / (ANALYSIS_VELOCITIES['rotational'][2] ** 3)
+            fm_vr3_forward_mean[:, :3] /= ANALYSIS_VELOCITIES[2] ** 3
+            fm_vr3_forward_std[:, :3] /= ANALYSIS_VELOCITIES[2] ** 3
             result['cubic']['forward'] = {'coefficients': fm_vr3_forward_mean, 'uncertainty': fm_vr3_forward_std}
         if motion_direction in ['backward', 'both']:
-            fm_vr3_backward_mean[:, :3] = fm_vr3_backward_mean[:, :3] / -(ANALYSIS_VELOCITIES['linear'][2] ** 3)
-            fm_vr3_backward_mean[:, 3:] = fm_vr3_backward_mean[:, 3:] / -(ANALYSIS_VELOCITIES['rotational'][2] ** 3)
-            fm_vr3_backward_std[:, :3] = fm_vr3_backward_std[:, :3] / -(ANALYSIS_VELOCITIES['linear'][2] ** 3)
-            fm_vr3_backward_std[:, 3:] = fm_vr3_backward_std[:, 3:] / -(ANALYSIS_VELOCITIES['rotational'][2] ** 3)
+            fm_vr3_backward_mean[:, :3] /= -(ANALYSIS_VELOCITIES[2] ** 3)
+            fm_vr3_backward_std[:, :3] = ANALYSIS_VELOCITIES[2] ** 3
             result['cubic']['backward'] = {'coefficients': fm_vr3_backward_mean, 'uncertainty': fm_vr3_backward_std}
 
     if model_order == 'second':
         result['linear'] = dict()
         result['quadratic'] = dict()
         if motion_direction in ['forward', 'both']:
-            fm_forward_mean_linear = np.zeros((6,6))
-            fm_forward_std_linear = np.zeros((6,6))
-            fm_forward_mean_quadratic = np.zeros((6,6))
-            fm_forward_std_quadratic = np.zeros((6,6))
-
-            denom_lin = (ANALYSIS_VELOCITIES['linear'][1] * (ANALYSIS_VELOCITIES['linear'][1] - ANALYSIS_VELOCITIES['linear'][0]))
-            denom_rot = (ANALYSIS_VELOCITIES['rotational'][1] * (ANALYSIS_VELOCITIES['rotational'][1] - ANALYSIS_VELOCITIES['rotational'][0]))
-            fm_forward_mean_linear[:, :3] = (fm_vr1_forward_mean[:, :3] / ANALYSIS_VELOCITIES['linear'][0]
-                                             - (ANALYSIS_VELOCITIES['linear'][0] * fm_vr2_forward_mean[:, :3] - fm_vr1_forward_mean[:, :3]) / denom_lin)
-            fm_forward_mean_linear[:, 3:] = (fm_vr1_forward_mean[:, 3:] / ANALYSIS_VELOCITIES['rotational'][0]
-                                             - (ANALYSIS_VELOCITIES['rotational'][0] * fm_vr2_forward_mean[:, 3:] - fm_vr1_forward_mean[:, 3:]) / denom_rot)
-            fm_forward_mean_quadratic[:, :3] = (fm_vr2_forward_mean[:, :3] - fm_vr1_forward_mean[:, :3] / ANALYSIS_VELOCITIES['linear'][0]) / denom_lin
-            fm_forward_mean_quadratic[:, 3:] = (fm_vr2_forward_mean[:, 3:] - fm_vr1_forward_mean[:, 3:] / ANALYSIS_VELOCITIES['rotational'][0]) / denom_rot
-
-            fm_forward_std_linear[:, :3] = np.sqrt((((denom_lin + ANALYSIS_VELOCITIES['linear'][0]) / (ANALYSIS_VELOCITIES['linear'][0] * denom_lin)) * fm_vr1_forward_std[:, :3]) ** 2
-                                                   + ((ANALYSIS_VELOCITIES['linear'][0] / denom_lin) * fm_vr2_forward_std[:, :3]) ** 2)
-            fm_forward_std_linear[:, 3:] = np.sqrt((((denom_rot + ANALYSIS_VELOCITIES['rotational'][0]) / (ANALYSIS_VELOCITIES['rotational'][0] * denom_rot)) * fm_vr1_forward_std[:, 3:]) ** 2
-                                                   + ((ANALYSIS_VELOCITIES['rotational'][0] / denom_rot) * fm_vr2_forward_std[:, 3:]) ** 2)
-            fm_forward_std_quadratic[:, :3] = np.sqrt(((1 / (ANALYSIS_VELOCITIES['linear'][0] * denom_lin)) * fm_vr1_forward_std[:, :3]) ** 2
-                                                   + ((1 / denom_lin) * fm_vr2_forward_std[:, :3]) ** 2)
-            fm_forward_std_quadratic[:, 3:] = np.sqrt(((1 / (ANALYSIS_VELOCITIES['rotational'][0] * denom_rot)) * fm_vr1_forward_std[:, 3:]) ** 2
-                                                   + ((1 / denom_rot) * fm_vr2_forward_std[:, 3:]) ** 2)
+            denom = ANALYSIS_VELOCITIES[1] * (ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[0])
+            fm_forward_mean_linear = (fm_vr1_forward_mean / ANALYSIS_VELOCITIES[0]
+                                      - (ANALYSIS_VELOCITIES[0] * fm_vr2_forward_mean - fm_vr1_forward_mean / denom))
+            fm_forward_mean_quadratic = (fm_vr2_forward_mean - fm_vr1_forward_mean / ANALYSIS_VELOCITIES[0]) / denom
+            fm_forward_std_linear = np.sqrt((((denom + ANALYSIS_VELOCITIES[0]) / (ANALYSIS_VELOCITIES[0] * denom)) * fm_vr1_forward_std) ** 2
+                                            + ((ANALYSIS_VELOCITIES[0] / denom) * fm_vr2_forward_std) ** 2)
+            fm_forward_std_quadratic = np.sqrt(((1 / (ANALYSIS_VELOCITIES[0] * denom)) * fm_vr1_forward_std) ** 2
+                                               + ((1 / denom) * fm_vr2_forward_std) ** 2)
 
             result['linear']['forward'] = {'coefficients': fm_forward_mean_linear, 'uncertainty': fm_forward_std_linear}
             result['quadratic']['forward'] = {'coefficients': fm_forward_mean_quadratic, 'uncertainty': fm_forward_std_quadratic}
 
         if motion_direction in ['backward', 'both']:
-            fm_backward_mean_linear = np.zeros((6,6))
-            fm_backward_std_linear = np.zeros((6,6))
-            fm_backward_mean_quadratic = np.zeros((6,6))
-            fm_backward_std_quadratic = np.zeros((6,6))
-
-            denom_lin = (-ANALYSIS_VELOCITIES['linear'][1] * (-ANALYSIS_VELOCITIES['linear'][1] + ANALYSIS_VELOCITIES['linear'][0]))
-            denom_rot = (-ANALYSIS_VELOCITIES['rotational'][1] * (-ANALYSIS_VELOCITIES['rotational'][1] + ANALYSIS_VELOCITIES['rotational'][0]))
-            fm_backward_mean_linear[:, :3] = (fm_vr1_backward_mean[:, :3] / -ANALYSIS_VELOCITIES['linear'][0]
-                                             - (-ANALYSIS_VELOCITIES['linear'][0] * fm_vr2_backward_mean[:, :3] - fm_vr1_backward_mean[:, :3]) / denom_lin)
-            fm_backward_mean_linear[:, 3:] = (fm_vr1_backward_mean[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][0]
-                                             - (-ANALYSIS_VELOCITIES['rotational'][0] * fm_vr2_backward_mean[:, 3:] - fm_vr1_backward_mean[:, 3:]) / denom_rot)
-            fm_backward_mean_quadratic[:, :3] = (fm_vr2_backward_mean[:, :3] - fm_vr1_backward_mean[:, :3] / -ANALYSIS_VELOCITIES['linear'][0]) / denom_lin
-            fm_backward_mean_quadratic[:, 3:] = (fm_vr2_backward_mean[:, 3:] - fm_vr1_backward_mean[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][0]) / denom_rot
-
-            fm_backward_std_linear[:, :3] = np.sqrt((((denom_lin - ANALYSIS_VELOCITIES['linear'][0]) / (-ANALYSIS_VELOCITIES['linear'][0] * denom_lin)) * fm_vr1_backward_std[:, :3]) ** 2
-                                                   + ((-ANALYSIS_VELOCITIES['linear'][0] / denom_lin) * fm_vr2_backward_std[:, :3]) ** 2)
-            fm_backward_std_linear[:, 3:] = np.sqrt((((denom_rot - ANALYSIS_VELOCITIES['rotational'][0]) / (-ANALYSIS_VELOCITIES['rotational'][0] * denom_rot)) * fm_vr1_backward_std[:, 3:]) ** 2
-                                                   + ((-ANALYSIS_VELOCITIES['rotational'][0] / denom_rot) * fm_vr2_backward_std[:, 3:]) ** 2)
-            fm_backward_std_quadratic[:, :3] = np.sqrt(((1 / (-ANALYSIS_VELOCITIES['linear'][0] * denom_lin)) * fm_vr1_backward_std[:, :3]) ** 2
-                                                   + ((1 / denom_lin) * fm_vr2_backward_std[:, :3]) ** 2)
-            fm_backward_std_quadratic[:, 3:] = np.sqrt(((1 / (-ANALYSIS_VELOCITIES['rotational'][0] * denom_rot)) * fm_vr1_backward_std[:, 3:]) ** 2
-                                                   + ((1 / denom_rot) * fm_vr2_backward_std[:, 3:]) ** 2)
+            denom = -ANALYSIS_VELOCITIES[1] * (-ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[0])
+            fm_backward_mean_linear = (fm_vr1_backward_mean / -ANALYSIS_VELOCITIES[0]
+                                       - (-ANALYSIS_VELOCITIES[0] * fm_vr2_backward_mean - fm_vr1_backward_mean) / denom)
+            fm_backward_mean_quadratic = (fm_vr2_backward_mean - fm_vr1_backward_mean / -ANALYSIS_VELOCITIES[0]) / denom
+            fm_backward_std_linear = np.sqrt((((denom - ANALYSIS_VELOCITIES[0]) / (-ANALYSIS_VELOCITIES[0] * denom)) * fm_vr1_backward_std) ** 2
+                                             + ((-ANALYSIS_VELOCITIES[0] / denom) * fm_vr2_backward_std) ** 2)
+            fm_backward_std_quadratic = np.sqrt(((1 / (-ANALYSIS_VELOCITIES[0] * denom)) * fm_vr1_backward_std) ** 2
+                                                + ((1 / denom) * fm_vr2_backward_std) ** 2)
 
             result['linear']['backward'] = {'coefficients': fm_backward_mean_linear, 'uncertainty': fm_backward_std_linear}
             result['quadratic']['backward'] = {'coefficients': fm_backward_mean_quadratic, 'uncertainty': fm_backward_std_quadratic}
@@ -254,180 +216,92 @@ def analyze_model(stl_filepath: str,
         result['quadratic'] = dict()
         result['cubic'] = dict()
         if motion_direction in ['forward', 'both']:
-            fm_forward_mean_linear = np.zeros((6,6))
-            fm_forward_std_linear = np.zeros((6,6))
-            fm_forward_mean_quadratic = np.zeros((6,6))
-            fm_forward_std_quadratic = np.zeros((6,6))
-            fm_forward_mean_cubic = np.zeros((6,6))
-            fm_forward_std_cubic = np.zeros((6,6))
 
-            fm_forward_mean_cubic[:, :3] = (((fm_vr3_forward_mean[:, :3] / (ANALYSIS_VELOCITIES['linear'][2] ** 3))
-                                            - (fm_vr1_forward_mean[:, :3] / (ANALYSIS_VELOCITIES['linear'][0] * ANALYSIS_VELOCITIES['linear'][2] ** 2))
-                                            + (((ANALYSIS_VELOCITIES['linear'][0] - ANALYSIS_VELOCITIES['linear'][2])
-                                                * (fm_vr2_forward_mean[:, :3] / ANALYSIS_VELOCITIES['linear'][1] ** 2 - fm_vr1_forward_mean[:, :3]
-                                                   / (ANALYSIS_VELOCITIES['linear'][0] * ANALYSIS_VELOCITIES['linear'][1])))
-                                               / (ANALYSIS_VELOCITIES['linear'][2] ** 2 * (1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1]))))
-                                            / (1 - ANALYSIS_VELOCITIES['linear'][0] ** 2 / ANALYSIS_VELOCITIES['linear'][2] ** 2
-                                               - ((ANALYSIS_VELOCITIES['linear'][0] - ANALYSIS_VELOCITIES['linear'][2])
-                                                  * (ANALYSIS_VELOCITIES['linear'][0] ** 2 / ANALYSIS_VELOCITIES['linear'][1] - ANALYSIS_VELOCITIES['linear'][1]))
-                                               / (ANALYSIS_VELOCITIES['linear'][2] ** 2 * (1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1]))))
-            fm_forward_mean_cubic[:, 3:] = (((fm_vr3_forward_mean[:, 3:] / (ANALYSIS_VELOCITIES['rotational'][2] ** 3))
-                                                        - (fm_vr1_forward_mean[:, 3:] / (ANALYSIS_VELOCITIES['rotational'][0] * ANALYSIS_VELOCITIES['rotational'][2] ** 2))
-                                                        + (((ANALYSIS_VELOCITIES['rotational'][0] - ANALYSIS_VELOCITIES['rotational'][2])
-                                                            * (fm_vr2_forward_mean[:, 3:] / ANALYSIS_VELOCITIES['rotational'][1] ** 2 - fm_vr1_forward_mean[:, 3:]
-                                                               / (ANALYSIS_VELOCITIES['rotational'][0] * ANALYSIS_VELOCITIES['rotational'][1])))
-                                                           / (ANALYSIS_VELOCITIES['rotational'][2] ** 2 * (1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1]))))
-                                                        / (1 - ANALYSIS_VELOCITIES['rotational'][0] ** 2 / ANALYSIS_VELOCITIES['rotational'][2] ** 2
-                                                           - ((ANALYSIS_VELOCITIES['rotational'][0] - ANALYSIS_VELOCITIES['rotational'][2])
-                                                              * (ANALYSIS_VELOCITIES['rotational'][0] ** 2 / ANALYSIS_VELOCITIES['rotational'][1] - ANALYSIS_VELOCITIES['rotational'][1]))
-                                                           / (ANALYSIS_VELOCITIES['rotational'][2] ** 2 * (1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1]))))
-            fm_forward_mean_quadratic[:, :3] = ((fm_vr2_forward_mean[:, :3] / ANALYSIS_VELOCITIES['linear'][1] ** 2
-                                                - fm_vr1_forward_mean[:, :3] / (ANALYSIS_VELOCITIES['linear'][0] * ANALYSIS_VELOCITIES['linear'][1])
-                                                + fm_forward_mean_cubic[:, :3] * (ANALYSIS_VELOCITIES['linear'][0] ** 2 / ANALYSIS_VELOCITIES['linear'][1] - ANALYSIS_VELOCITIES['linear'][1]))
-                                                / (1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1]))
-            fm_forward_mean_quadratic[:, 3:] = ((fm_vr2_forward_mean[:, 3:] / ANALYSIS_VELOCITIES['rotational'][1] ** 2
-                                                - fm_vr1_forward_mean[:, 3:] / (ANALYSIS_VELOCITIES['rotational'][0] * ANALYSIS_VELOCITIES['rotational'][1])
-                                                + fm_forward_mean_cubic[:, 3:] * (ANALYSIS_VELOCITIES['rotational'][0] ** 2 / ANALYSIS_VELOCITIES['rotational'][1] - ANALYSIS_VELOCITIES['rotational'][1]))
-                                                / (1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1]))
-            fm_forward_mean_linear[:, :3] = (fm_vr1_forward_mean[:, :3] / ANALYSIS_VELOCITIES['linear'][0]
-                                             - fm_forward_mean_quadratic[:, :3] * ANALYSIS_VELOCITIES['linear'][0]
-                                             - fm_forward_mean_cubic[:, :3] * ANALYSIS_VELOCITIES['linear'][0] ** 2)
-            fm_forward_mean_linear[:, 3:] = (fm_vr1_forward_mean[:, 3:] / ANALYSIS_VELOCITIES['rotational'][0]
-                                             - fm_forward_mean_quadratic[:, 3:] * ANALYSIS_VELOCITIES['rotational'][0]
-                                             - fm_forward_mean_cubic[:, 3:] * ANALYSIS_VELOCITIES['rotational'][0] ** 2)
+            fm_forward_mean_cubic = (((fm_vr3_forward_mean / (ANALYSIS_VELOCITIES[2] ** 3))
+                                      - (fm_vr1_forward_mean / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[2] ** 2))
+                                      + (((ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
+                                          * (fm_vr2_forward_mean / ANALYSIS_VELOCITIES[1] ** 2 - fm_vr1_forward_mean
+                                             / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[1])))
+                                         / (ANALYSIS_VELOCITIES[2] ** 2 * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))))
+                                     / (1 - ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[2] ** 2
+                                        - ((ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
+                                           * (ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[1]))
+                                        / (ANALYSIS_VELOCITIES[2] ** 2 * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))))
+            fm_forward_mean_quadratic= ((fm_vr2_forward_mean / ANALYSIS_VELOCITIES[1] ** 2
+                                         - fm_vr1_forward_mean / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[1])
+                                         + fm_forward_mean_cubic * (ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[1]))
+                                        / (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))
+            fm_forward_mean_linear = (fm_vr1_forward_mean / ANALYSIS_VELOCITIES[0]
+                                      - fm_forward_mean_quadratic * ANALYSIS_VELOCITIES[0]
+                                      - fm_forward_mean_cubic * ANALYSIS_VELOCITIES[0] ** 2)
 
-            fm_forward_std_cubic[:, :3] = (np.sqrt(((1 / (ANALYSIS_VELOCITIES['linear'][0] * ANALYSIS_VELOCITIES['linear'][2] ** 2)
-                                                     - (ANALYSIS_VELOCITIES['linear'][0] - ANALYSIS_VELOCITIES['linear'][2])
-                                                     / (ANALYSIS_VELOCITIES['linear'][0] * ANALYSIS_VELOCITIES['linear'][1] * ANALYSIS_VELOCITIES['linear'][2] ** 2
-                                                        * (1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1]))) * fm_vr1_forward_std[:, :3]) ** 2
-                                                   + (((ANALYSIS_VELOCITIES['linear'][0] - ANALYSIS_VELOCITIES['linear'][2])
-                                                       / (ANALYSIS_VELOCITIES['linear'][1] ** 2 * ANALYSIS_VELOCITIES['linear'][2] ** 2
-                                                          *(1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1]))) * fm_vr2_forward_std[:, :3]) ** 2
-                                                   + (fm_vr3_forward_std[:, :3] / ANALYSIS_VELOCITIES['linear'][2] ** 3) ** 2)
-                                           / np.abs((1 - ANALYSIS_VELOCITIES['linear'][0] ** 2 / ANALYSIS_VELOCITIES['linear'][2] ** 2
-                                               - ((ANALYSIS_VELOCITIES['linear'][0] - ANALYSIS_VELOCITIES['linear'][2])
-                                                  * (ANALYSIS_VELOCITIES['linear'][0] ** 2 / ANALYSIS_VELOCITIES['linear'][1] - ANALYSIS_VELOCITIES['linear'][1]))
-                                               / (ANALYSIS_VELOCITIES['linear'][2] ** 2 * (1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1])))))
-            fm_forward_std_cubic[:, 3:] = (np.sqrt(((1 / (ANALYSIS_VELOCITIES['rotational'][0] * ANALYSIS_VELOCITIES['rotational'][2] ** 2)
-                                                     - (ANALYSIS_VELOCITIES['rotational'][0] - ANALYSIS_VELOCITIES['rotational'][2])
-                                                     / (ANALYSIS_VELOCITIES['rotational'][0] * ANALYSIS_VELOCITIES['rotational'][1] * ANALYSIS_VELOCITIES['rotational'][2] ** 2
-                                                        * (1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1]))) * fm_vr1_forward_std[:, 3:]) ** 2
-                                                   + (((ANALYSIS_VELOCITIES['rotational'][0] - ANALYSIS_VELOCITIES['rotational'][2])
-                                                       / (ANALYSIS_VELOCITIES['rotational'][1] ** 2 * ANALYSIS_VELOCITIES['rotational'][2] ** 2
-                                                          *(1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1]))) * fm_vr2_forward_std[:, 3:]) ** 2
-                                                   + (fm_vr3_forward_std[:, 3:] / ANALYSIS_VELOCITIES['rotational'][2] ** 3) ** 2)
-                                           / np.abs((1 - ANALYSIS_VELOCITIES['rotational'][0] ** 2 / ANALYSIS_VELOCITIES['rotational'][2] ** 2
-                                               - ((ANALYSIS_VELOCITIES['rotational'][0] - ANALYSIS_VELOCITIES['rotational'][2])
-                                                  * (ANALYSIS_VELOCITIES['rotational'][0] ** 2 / ANALYSIS_VELOCITIES['rotational'][1] - ANALYSIS_VELOCITIES['rotational'][1]))
-                                               / (ANALYSIS_VELOCITIES['rotational'][2] ** 2 * (1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1])))))
-            fm_forward_std_quadratic[:, :3] = np.sqrt(((1 / (ANALYSIS_VELOCITIES['linear'][0] * ANALYSIS_VELOCITIES['linear'][1]
-                                                             * (1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1]))) * fm_vr1_forward_std[:, :3]) ** 2
-                                                      +((1 /  (ANALYSIS_VELOCITIES['linear'][1] ** 2
-                                                               * (1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1]))) * fm_vr2_forward_std[:, :3]) ** 2
-                                                      +(((ANALYSIS_VELOCITIES['linear'][0] ** 2 / ANALYSIS_VELOCITIES['linear'][1] - ANALYSIS_VELOCITIES['linear'][1])
-                                                         / (1 - ANALYSIS_VELOCITIES['linear'][0] / ANALYSIS_VELOCITIES['linear'][1])) * fm_forward_std_cubic[:, :3]) ** 2)
-            fm_forward_std_quadratic[:, 3:] = np.sqrt(((1 / (ANALYSIS_VELOCITIES['rotational'][0] * ANALYSIS_VELOCITIES['rotational'][1]
-                                                             * (1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1]))) * fm_vr1_forward_std[:, 3:]) ** 2
-                                                      +((1 /  (ANALYSIS_VELOCITIES['rotational'][1] ** 2
-                                                               * (1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1]))) * fm_vr2_forward_std[:, 3:]) ** 2
-                                                      +(((ANALYSIS_VELOCITIES['rotational'][0] ** 2 / ANALYSIS_VELOCITIES['rotational'][1] - ANALYSIS_VELOCITIES['rotational'][1])
-                                                         / (1 - ANALYSIS_VELOCITIES['rotational'][0] / ANALYSIS_VELOCITIES['rotational'][1])) * fm_forward_std_cubic[:, 3:]) ** 2)
-            fm_forward_std_linear[:, :3] = np.sqrt((fm_vr1_forward_std[:, :3] / ANALYSIS_VELOCITIES['linear'][0]) ** 2
-                                                   + (fm_forward_std_quadratic[:, :3] * ANALYSIS_VELOCITIES['linear'][0]) ** 2
-                                                   + (fm_forward_std_cubic[:, :3] * ANALYSIS_VELOCITIES['linear'][0] ** 2) ** 2)
-            fm_forward_std_linear[:, 3:] = np.sqrt((fm_vr1_forward_std[:, 3:] / ANALYSIS_VELOCITIES['rotational'][0]) ** 2
-                                                   + (fm_forward_std_quadratic[:, 3:] * ANALYSIS_VELOCITIES['rotational'][0]) ** 2
-                                                   + (fm_forward_std_cubic[:, 3:] * ANALYSIS_VELOCITIES['rotational'][0] ** 2) ** 2)
+
+            fm_forward_std_cubic = (np.sqrt(((1 / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[2] ** 2)
+                                              - (ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
+                                              / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[1] * ANALYSIS_VELOCITIES[2] ** 2
+                                                 * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))) * fm_vr1_forward_std) ** 2
+                                            + (((ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
+                                                / (ANALYSIS_VELOCITIES[1] ** 2 * ANALYSIS_VELOCITIES[2] ** 2
+                                                   * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))) * fm_vr2_forward_std) ** 2
+                                            + (fm_vr3_forward_std / ANALYSIS_VELOCITIES[2] ** 3) ** 2)
+                                    / np.abs((1 - ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[2] ** 2
+                                              - ((ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
+                                                 * (ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[1]))
+                                              / (ANALYSIS_VELOCITIES[2] ** 2 * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1])))))
+            fm_forward_std_quadratic = np.sqrt(((1 / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[1]
+                                                      * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))) * fm_vr1_forward_std) ** 2
+                                               + ((1 /  (ANALYSIS_VELOCITIES[1] ** 2
+                                                        * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))) * fm_vr2_forward_std) ** 2
+                                               + (((ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[1])
+                                                   / (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1])) * fm_forward_std_cubic) ** 2)
+            fm_forward_std_linear = np.sqrt((fm_vr1_forward_std / ANALYSIS_VELOCITIES[0]) ** 2
+                                            + (fm_forward_std_quadratic * ANALYSIS_VELOCITIES[0]) ** 2
+                                            + (fm_forward_std_cubic * ANALYSIS_VELOCITIES[0] ** 2) ** 2)
+
 
             result['linear']['forward'] = {'coefficients': fm_forward_mean_linear, 'uncertainty': fm_forward_std_linear}
             result['quadratic']['forward'] = {'coefficients': fm_forward_mean_quadratic, 'uncertainty': fm_forward_std_quadratic}
             result['cubic']['forward'] = {'coefficients': fm_forward_mean_cubic, 'uncertainty': fm_forward_std_cubic}
 
         if motion_direction in ['backward', 'both']:
-            fm_backward_mean_linear = np.zeros((6,6))
-            fm_backward_std_linear = np.zeros((6,6))
-            fm_backward_mean_quadratic = np.zeros((6,6))
-            fm_backward_std_quadratic = np.zeros((6,6))
-            fm_backward_mean_cubic = np.zeros((6,6))
-            fm_backward_std_cubic = np.zeros((6,6))
-
-            fm_backward_mean_cubic[:, :3] = (((fm_vr3_backward_mean[:, :3] / (-ANALYSIS_VELOCITIES['linear'][2] ** 3))
-                                            - (fm_vr1_backward_mean[:, :3] / (-ANALYSIS_VELOCITIES['linear'][0] * -ANALYSIS_VELOCITIES['linear'][2] ** 2))
-                                            + (((-ANALYSIS_VELOCITIES['linear'][0] + ANALYSIS_VELOCITIES['linear'][2])
-                                                * (fm_vr2_backward_mean[:, :3] / -ANALYSIS_VELOCITIES['linear'][1] ** 2 - fm_vr1_backward_mean[:, :3]
-                                                   / (-ANALYSIS_VELOCITIES['linear'][0] * -ANALYSIS_VELOCITIES['linear'][1])))
-                                               / (-ANALYSIS_VELOCITIES['linear'][2] ** 2 * (1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1]))))
-                                            / (1 + ANALYSIS_VELOCITIES['linear'][0] ** 2 / -ANALYSIS_VELOCITIES['linear'][2] ** 2
-                                               - ((-ANALYSIS_VELOCITIES['linear'][0] + ANALYSIS_VELOCITIES['linear'][2])
-                                                  * (-ANALYSIS_VELOCITIES['linear'][0] ** 2 / -ANALYSIS_VELOCITIES['linear'][1] + ANALYSIS_VELOCITIES['linear'][1]))
-                                               / (-ANALYSIS_VELOCITIES['linear'][2] ** 2 * (1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1]))))
-            fm_backward_mean_cubic[:, 3:] = (((fm_vr3_backward_mean[:, 3:] / (-ANALYSIS_VELOCITIES['rotational'][2] ** 3))
-                                                        - (fm_vr1_backward_mean[:, 3:] / (-ANALYSIS_VELOCITIES['rotational'][0] * -ANALYSIS_VELOCITIES['rotational'][2] ** 2))
-                                                        + (((-ANALYSIS_VELOCITIES['rotational'][0] + ANALYSIS_VELOCITIES['rotational'][2])
-                                                            * (fm_vr2_backward_mean[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][1] ** 2 - fm_vr1_backward_mean[:, 3:]
-                                                               / (-ANALYSIS_VELOCITIES['rotational'][0] * -ANALYSIS_VELOCITIES['rotational'][1])))
-                                                           / (-ANALYSIS_VELOCITIES['rotational'][2] ** 2 * (1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1]))))
-                                                        / (1 + ANALYSIS_VELOCITIES['rotational'][0] ** 2 / -ANALYSIS_VELOCITIES['rotational'][2] ** 2
-                                                           - ((-ANALYSIS_VELOCITIES['rotational'][0] + ANALYSIS_VELOCITIES['rotational'][2])
-                                                              * (-ANALYSIS_VELOCITIES['rotational'][0] ** 2 / -ANALYSIS_VELOCITIES['rotational'][1] + ANALYSIS_VELOCITIES['rotational'][1]))
-                                                           / (-ANALYSIS_VELOCITIES['rotational'][2] ** 2 * (1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1]))))
-            fm_backward_mean_quadratic[:, :3] = ((fm_vr2_backward_mean[:, :3] / -ANALYSIS_VELOCITIES['linear'][1] ** 2
-                                                - fm_vr1_backward_mean[:, :3] / (-ANALYSIS_VELOCITIES['linear'][0] * -ANALYSIS_VELOCITIES['linear'][1])
-                                                + fm_backward_mean_cubic[:, :3] * (-ANALYSIS_VELOCITIES['linear'][0] ** 2 / -ANALYSIS_VELOCITIES['linear'][1] + ANALYSIS_VELOCITIES['linear'][1]))
-                                                / (1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1]))
-            fm_backward_mean_quadratic[:, 3:] = ((fm_vr2_backward_mean[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][1] ** 2
-                                                - fm_vr1_backward_mean[:, 3:] / (-ANALYSIS_VELOCITIES['rotational'][0] * -ANALYSIS_VELOCITIES['rotational'][1])
-                                                + fm_backward_mean_cubic[:, 3:] * (-ANALYSIS_VELOCITIES['rotational'][0] ** 2 / -ANALYSIS_VELOCITIES['rotational'][1] + ANALYSIS_VELOCITIES['rotational'][1]))
-                                                / (1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1]))
-            fm_backward_mean_linear[:, :3] = (fm_vr1_backward_mean[:, :3] / -ANALYSIS_VELOCITIES['linear'][0]
-                                             - fm_backward_mean_quadratic[:, :3] * -ANALYSIS_VELOCITIES['linear'][0]
-                                             - fm_backward_mean_cubic[:, :3] * -ANALYSIS_VELOCITIES['linear'][0] ** 2)
-            fm_backward_mean_linear[:, 3:] = (fm_vr1_backward_mean[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][0]
-                                             - fm_backward_mean_quadratic[:, 3:] * -ANALYSIS_VELOCITIES['rotational'][0]
-                                             - fm_backward_mean_cubic[:, 3:] * -ANALYSIS_VELOCITIES['rotational'][0] ** 2)
-
-            fm_backward_std_cubic[:, :3] = (np.sqrt(((1 / (-ANALYSIS_VELOCITIES['linear'][0] * -ANALYSIS_VELOCITIES['linear'][2] ** 2)
-                                                     - (-ANALYSIS_VELOCITIES['linear'][0] + ANALYSIS_VELOCITIES['linear'][2])
-                                                     / (-ANALYSIS_VELOCITIES['linear'][0] * -ANALYSIS_VELOCITIES['linear'][1] * -ANALYSIS_VELOCITIES['linear'][2] ** 2
-                                                        * (1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1]))) * fm_vr1_backward_std[:, :3]) ** 2
-                                                   + (((-ANALYSIS_VELOCITIES['linear'][0] + ANALYSIS_VELOCITIES['linear'][2])
-                                                       / (-ANALYSIS_VELOCITIES['linear'][1] ** 2 * -ANALYSIS_VELOCITIES['linear'][2] ** 2
-                                                          *(1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1]))) * fm_vr2_backward_std[:, :3]) ** 2
-                                                   + (fm_vr3_backward_std[:, :3] / -ANALYSIS_VELOCITIES['linear'][2] ** 3) ** 2)
-                                           / np.abs((1 + ANALYSIS_VELOCITIES['linear'][0] ** 2 / -ANALYSIS_VELOCITIES['linear'][2] ** 2
-                                               - ((-ANALYSIS_VELOCITIES['linear'][0] + ANALYSIS_VELOCITIES['linear'][2])
-                                                  * (-ANALYSIS_VELOCITIES['linear'][0] ** 2 / -ANALYSIS_VELOCITIES['linear'][1] + ANALYSIS_VELOCITIES['linear'][1]))
-                                               / (-ANALYSIS_VELOCITIES['linear'][2] ** 2 * (1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1])))))
-            fm_backward_std_cubic[:, 3:] = (np.sqrt(((1 / (-ANALYSIS_VELOCITIES['rotational'][0] * -ANALYSIS_VELOCITIES['rotational'][2] ** 2)
-                                                     - (-ANALYSIS_VELOCITIES['rotational'][0] + ANALYSIS_VELOCITIES['rotational'][2])
-                                                     / (-ANALYSIS_VELOCITIES['rotational'][0] * -ANALYSIS_VELOCITIES['rotational'][1] * -ANALYSIS_VELOCITIES['rotational'][2] ** 2
-                                                        * (1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1]))) * fm_vr1_backward_std[:, 3:]) ** 2
-                                                   + (((-ANALYSIS_VELOCITIES['rotational'][0] + ANALYSIS_VELOCITIES['rotational'][2])
-                                                       / (-ANALYSIS_VELOCITIES['rotational'][1] ** 2 * -ANALYSIS_VELOCITIES['rotational'][2] ** 2
-                                                          *(1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1]))) * fm_vr2_backward_std[:, 3:]) ** 2
-                                                   + (fm_vr3_backward_std[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][2] ** 3) ** 2)
-                                           / np.abs((1 + ANALYSIS_VELOCITIES['rotational'][0] ** 2 / -ANALYSIS_VELOCITIES['rotational'][2] ** 2
-                                               - ((-ANALYSIS_VELOCITIES['rotational'][0] + ANALYSIS_VELOCITIES['rotational'][2])
-                                                  * (-ANALYSIS_VELOCITIES['rotational'][0] ** 2 / -ANALYSIS_VELOCITIES['rotational'][1] + ANALYSIS_VELOCITIES['rotational'][1]))
-                                               / (-ANALYSIS_VELOCITIES['rotational'][2] ** 2 * (1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1])))))
-            fm_backward_std_quadratic[:, :3] = np.sqrt(((1 / (-ANALYSIS_VELOCITIES['linear'][0] * -ANALYSIS_VELOCITIES['linear'][1]
-                                                             * (1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1]))) * fm_vr1_backward_std[:, :3]) ** 2
-                                                      +((1 /  (-ANALYSIS_VELOCITIES['linear'][1] ** 2
-                                                               * (1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1]))) * fm_vr2_backward_std[:, :3]) ** 2
-                                                      +(((-ANALYSIS_VELOCITIES['linear'][0] ** 2 / -ANALYSIS_VELOCITIES['linear'][1] + ANALYSIS_VELOCITIES['linear'][1])
-                                                         / (1 + ANALYSIS_VELOCITIES['linear'][0] / -ANALYSIS_VELOCITIES['linear'][1])) * fm_backward_std_cubic[:, :3]) ** 2)
-            fm_backward_std_quadratic[:, 3:] = np.sqrt(((1 / (-ANALYSIS_VELOCITIES['rotational'][0] * -ANALYSIS_VELOCITIES['rotational'][1]
-                                                             * (1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1]))) * fm_vr1_backward_std[:, 3:]) ** 2
-                                                      +((1 / (-ANALYSIS_VELOCITIES['rotational'][1] ** 2
-                                                               * (1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1]))) * fm_vr2_backward_std[:, 3:]) ** 2
-                                                      +(((-ANALYSIS_VELOCITIES['rotational'][0] ** 2 / -ANALYSIS_VELOCITIES['rotational'][1] + ANALYSIS_VELOCITIES['rotational'][1])
-                                                         / (1 + ANALYSIS_VELOCITIES['rotational'][0] / -ANALYSIS_VELOCITIES['rotational'][1])) * fm_backward_std_cubic[:, 3:]) ** 2)
-            fm_backward_std_linear[:, :3] = np.sqrt((fm_vr1_backward_std[:, :3] / -ANALYSIS_VELOCITIES['linear'][0]) ** 2
-                                                   + (fm_backward_std_quadratic[:, :3] * -ANALYSIS_VELOCITIES['linear'][0]) ** 2
-                                                   + (fm_backward_std_cubic[:, :3] * -ANALYSIS_VELOCITIES['linear'][0] ** 2) ** 2)
-            fm_backward_std_linear[:, 3:] = np.sqrt((fm_vr1_backward_std[:, 3:] / -ANALYSIS_VELOCITIES['rotational'][0]) ** 2
-                                                   + (fm_backward_std_quadratic[:, 3:] * -ANALYSIS_VELOCITIES['rotational'][0]) ** 2
-                                                   + (fm_backward_std_cubic[:, 3:] * -ANALYSIS_VELOCITIES['rotational'][0] ** 2) ** 2)
+            fm_backward_mean_cubic = (((fm_vr3_backward_mean / (-ANALYSIS_VELOCITIES[2] ** 3))
+                                       - (fm_vr1_backward_mean / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[2] ** 2))
+                                       + (((-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
+                                           * (fm_vr2_backward_mean / -ANALYSIS_VELOCITIES[1] ** 2 - fm_vr1_backward_mean
+                                              / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[1])))
+                                          / (-ANALYSIS_VELOCITIES[2] ** 2 * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))))
+                                      / (1 + ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[2] ** 2
+                                         - ((-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
+                                            * (-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[1]))
+                                         / (-ANALYSIS_VELOCITIES[2] ** 2 * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))))
+            fm_backward_mean_quadratic = ((fm_vr2_backward_mean / -ANALYSIS_VELOCITIES[1] ** 2
+                                           - fm_vr1_backward_mean / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[1])
+                                           + fm_backward_mean_cubic * (-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[1]))
+                                          / (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))
+            fm_backward_mean_linear = (fm_vr1_backward_mean / -ANALYSIS_VELOCITIES[0]
+                                       - fm_backward_mean_quadratic * -ANALYSIS_VELOCITIES[0]
+                                       - fm_backward_mean_cubic * -ANALYSIS_VELOCITIES[0] ** 2)
+            fm_backward_std_cubic = (np.sqrt(((1 / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[2] ** 2)
+                                               - (-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
+                                               / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[1] * -ANALYSIS_VELOCITIES[2] ** 2
+                                                  * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))) * fm_vr1_backward_std) ** 2
+                                             + (((-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
+                                                 / (-ANALYSIS_VELOCITIES[1] ** 2 * -ANALYSIS_VELOCITIES[2] ** 2
+                                                    * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))) * fm_vr2_backward_std) ** 2
+                                             + (fm_vr3_backward_std / -ANALYSIS_VELOCITIES[2] ** 3) ** 2)
+                                     / np.abs((1 + ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[2] ** 2
+                                               - ((-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
+                                                  * (-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[1]))
+                                               / (-ANALYSIS_VELOCITIES[2] ** 2 * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1])))))
+            fm_backward_std_quadratic = np.sqrt(((1 / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[1]
+                                                       * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))) * fm_vr1_backward_std) ** 2
+                                                + ((1 /  (-ANALYSIS_VELOCITIES[1] ** 2
+                                                          * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))) * fm_vr2_backward_std) ** 2
+                                                +(((-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[1])
+                                                   / (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1])) * fm_backward_std_cubic) ** 2)
+            fm_backward_std_linear = np.sqrt((fm_vr1_backward_std / -ANALYSIS_VELOCITIES[0]) ** 2
+                                             + (fm_backward_std_quadratic * -ANALYSIS_VELOCITIES[0]) ** 2
+                                             + (fm_backward_std_cubic * -ANALYSIS_VELOCITIES[0] ** 2) ** 2)
 
             result['linear']['backward'] = {'coefficients': fm_backward_mean_linear, 'uncertainty': fm_backward_std_linear}
             result['quadratic']['backward'] = {'coefficients': fm_backward_mean_quadratic, 'uncertainty': fm_backward_std_quadratic}
@@ -437,7 +311,7 @@ def analyze_model(stl_filepath: str,
 
 def run_model(stl_filepath: str,
               save_filepath: str,
-              velocities_rates: list[tuple[float, float]],
+              velocities: list[tuple[float, float, float, float, float, float]],
               z_constraint: str = 'submerged',
               z_to_waterline: float = 0.
               ) -> None:
@@ -446,29 +320,26 @@ def run_model(stl_filepath: str,
 
     :param stl_filepath: path to the STL file to be analyzed.
     :param save_filepath: path to directory in which results are stored.
-    :param velocities_rates: list of pairs of velocity and rotational rate as tuple. 6 cases are run per tuple.
+    :param velocities: list of pairs of velocity and rotational rate as tuple. 6 cases are run per tuple.
     :param z_constraint: type of situation to be analyzed, either "submerged" or "floating".
     :param z_to_waterline: distance from CG to waterline (negative for CG below free surface). Only used for floating objects.
     """
 
     # validate inputs
-    for (velocity, rate) in velocities_rates:
-        if abs(velocity) < 1e-10 or abs(rate) < 1e-10:
-            raise ValueError('only non-zero velocities and rates can be used.')
+    for velocities_ in velocities:
+        for velocity in velocities_:
+            if abs(velocity) < 1e-10:
+                raise ValueError('only non-zero velocities can be used.')
     if z_constraint not in ['floating', 'submerged']:
         raise ValueError('z_constraint must be either floating or submerged.')
 
     # build and run cases for each velocity rate tuple
-    for idx, (velocity, rate) in enumerate(velocities_rates):
-        for axis in ['x', 'y', 'z']:
-            build_case(velocity, stl_filepath, axis, 'linear', z_constraint, z_to_waterline)
+    for idx, velocities_, in enumerate(velocities):
+        for velocity, axis, motion in zip(velocities_, ['x', 'y', 'z'] * 2, ['linear'] * 3 + ['rotational'] * 3):
+            build_case(velocity, stl_filepath, axis, motion, z_constraint, z_to_waterline)
             run_case()
             shutil.copyfile('./temp/postProcessing/forces_object/0/forces.dat',
-                            '{}/forces_{}_linear_{}.dat'.format(save_filepath, axis, idx))
-            build_case(rate, stl_filepath, axis, 'rotational', z_constraint, z_to_waterline)
-            run_case()
-            shutil.copyfile('./temp/postProcessing/forces_object/0/forces.dat',
-                            '{}/forces_{}_rotational_{}.dat'.format(save_filepath, axis, idx))
+                            '{}/forces_{}_{}_{}.dat'.format(save_filepath, axis, motion, idx))
 
 def load_force_data(filepath: str = './temp/postProcessing/forces_object/0/forces.dat'
                     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -480,7 +351,7 @@ def load_force_data(filepath: str = './temp/postProcessing/forces_object/0/force
     """
 
     data = np.loadtxt(filepath, skiprows=3, dtype='str')
-    data = np.strings.replace(np.strings.replace(data,'(',''),')','').astype('float')
+    data = np.char.replace(np.char.replace(data,'(',''),')','').astype('float')
     return data[:,0], data[:,1:4] + data[:,4:7], data[:,7:10] + data[:,10:]
 
 def build_case(velocity_rate: float,
@@ -528,8 +399,8 @@ def build_case(velocity_rate: float,
         with open('./temp/constant/MRFProperties', 'r') as mrf_file:
             mrf = mrf_file.read()
         with open('./temp/constant/MRFProperties', 'w') as mrf_file:
-            # negative sign for rate because MRF zone is rotating counterclockwise, but we care about the object
-            mrf_file.write(mrf.format(angular_velocity=-velocity_rate))
+            # MRF zone is rotating counterclockwise
+            mrf_file.write(mrf.format(angular_velocity=velocity_rate))
 
     # load stl and determine dimension (side length of a "bounding cube")
     stl_mesh = mesh.Mesh.from_file(stl_filepath)
@@ -607,6 +478,7 @@ def run_case() -> None:
     """
 
     subprocess.run(['./runFoam.sh'], stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
+
 
 
 # script runner
