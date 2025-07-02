@@ -32,39 +32,33 @@ SIMULATION_TIME_MULTIPLIER = 3. # number of times the flow traverses the full si
 BASE_RESOLUTION = int(30) # number of cells along the base (=non-extended) dimension, ~O(N^3) impact on runtime!
 MAX_CFL_NUMBER = 20 # maximum Courant-Friedrichs-Lewy number, lower numbers cause longer runtime but higher quality results.
 
-# evaluation points to estimate first, second, third order component of model
-ANALYSIS_VELOCITIES = [np.array((1., .166, .166, .033, .033, .033)),
-                       np.array((2., .333, .333, .066, .066, .066)),
+# evaluation points to estimate first and second order component of model
+ANALYSIS_VELOCITIES = [np.array((1.5, .25, .25, .05, .05, .05)),
                        np.array((3., .5, .5, .1, .1, .1))]
 CUTOFF_FRACTION = 0.1 # amount of datapoint from beginning of CFD run to discard
 
 def analyze_model(stl_filepath: str,
                   z_constraint: str = 'submerged',
                   z_to_waterline: float = 0.,
-                  model_order: str = 'second',
                   motion_direction: str = 'forward'
                   ) -> dict:
     """
-    Analyze a model provided as STL file to extract hydrodynamic damping coefficients according to specified model.
+    Analyze a model provided as STL file to extract hydrodynamic damping coefficients.
     Note that runtimes of multiple hours are normal.
 
     :param stl_filepath: path to the STL file to be analyzed.
     :param z_constraint: type of situation to be analyzed, either "submerged" or "floating".
     :param z_to_waterline: distance from CG to waterline (negative for CG below free surface). Only used for floating objects.
-    :param model_order: order of model used to analyze results, can be "first", "second", "third", "second_only", or "third_only".
     :param motion_direction: direction of motion to be analyzed, can be "forward", "backward" or "both".
     :return: nested dictionary containing hydrodynamic damping coefficients.
     Entries are result["coefficient_order"]["motion_direction"]["coefficients/uncertainty"].
-    coefficient_order in ["linear","quadratic","cubic"] with multiple entries present for second and third order model.
-    motion_direction values are the same as input values.
+    coefficient_order in ["linear","quadratic"]. motion_direction values are the same as input values.
     For each coefficient a matching uncertainty is provided.
     """
 
     # validate keyword inputs
     if z_constraint not in ['floating', 'submerged']:
         raise ValueError('z_constraint must be either floating or submerged.')
-    if model_order not in ['first', 'second', 'second_only', 'third', 'third_only']:
-        raise ValueError('model_order must be either first, second, second_only, third, or third_only.')
     if motion_direction not in ['forward', 'backward', 'both']:
         raise ValueError('motion_direction must be either forward, backward, or both.')
 
@@ -79,233 +73,82 @@ def analyze_model(stl_filepath: str,
     fm_vr2_backward_mean = np.zeros((6,6))
     fm_vr2_backward_std = np.zeros((6,6))
 
-    fm_vr3_forward_mean = np.zeros((6,6))
-    fm_vr3_forward_std = np.zeros((6,6))
-    fm_vr3_backward_mean = np.zeros((6,6))
-    fm_vr3_backward_std = np.zeros((6,6))
 
-    # run first velocity if required
-    if model_order in ['first', 'second', 'third']:
-        for idx1, motion in enumerate(['linear', 'rotational']):
-            for idx2, axis in enumerate(['x', 'y', 'z']):
-                if motion_direction in ['forward', 'both']:
-                    build_case(ANALYSIS_VELOCITIES[0][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
-                    run_case()
-                    time, forces, moments = load_force_data()
-                    fm_vr1_forward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr1_forward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr1_forward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr1_forward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                if motion_direction in ['backward', 'both']:
-                    build_case(-ANALYSIS_VELOCITIES[0][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
-                    run_case()
-                    time, forces, moments = load_force_data()
-                    fm_vr1_backward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr1_backward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr1_backward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr1_backward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
+    # run first velocity
+    for idx1, motion in enumerate(['linear', 'rotational']):
+        for idx2, axis in enumerate(['x', 'y', 'z']):
+            if motion_direction in ['forward', 'both']:
+                build_case(ANALYSIS_VELOCITIES[0][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                run_case()
+                time, forces, moments = load_force_data()
+                fm_vr1_forward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr1_forward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr1_forward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr1_forward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
+            if motion_direction in ['backward', 'both']:
+                build_case(-ANALYSIS_VELOCITIES[0][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                run_case()
+                time, forces, moments = load_force_data()
+                fm_vr1_backward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr1_backward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr1_backward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr1_backward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
 
-    # run second velocity if required
-    if model_order in ['second', 'second_only', 'third']:
-        for idx1, motion in enumerate(['linear', 'rotational']):
-            for idx2, axis in enumerate(['x', 'y', 'z']):
-                if motion_direction in ['forward', 'both']:
-                    build_case(ANALYSIS_VELOCITIES[1][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
-                    run_case()
-                    time, forces, moments = load_force_data()
-                    fm_vr2_forward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr2_forward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr2_forward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr2_forward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                if motion_direction in ['backward', 'both']:
-                    build_case(-ANALYSIS_VELOCITIES[1][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
-                    run_case()
-                    time, forces, moments = load_force_data()
-                    fm_vr2_backward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr2_backward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr2_backward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr2_backward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
+    # run second velocity
+    for idx1, motion in enumerate(['linear', 'rotational']):
+        for idx2, axis in enumerate(['x', 'y', 'z']):
+            if motion_direction in ['forward', 'both']:
+                build_case(ANALYSIS_VELOCITIES[1][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                run_case()
+                time, forces, moments = load_force_data()
+                fm_vr2_forward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr2_forward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr2_forward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr2_forward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
+            if motion_direction in ['backward', 'both']:
+                build_case(-ANALYSIS_VELOCITIES[1][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
+                run_case()
+                time, forces, moments = load_force_data()
+                fm_vr2_backward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr2_backward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr2_backward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
+                fm_vr2_backward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
 
-    # run third velocity if required
-    if model_order in ['third', 'third_only']:
-        for idx1, motion in enumerate(['linear', 'rotational']):
-            for idx2, axis in enumerate(['x', 'y', 'z']):
-                if motion_direction in ['forward', 'both']:
-                    build_case(ANALYSIS_VELOCITIES[2][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
-                    run_case()
-                    time, forces, moments = load_force_data()
-                    fm_vr3_forward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr3_forward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr3_forward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr3_forward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                if motion_direction in ['backward', 'both']:
-                    build_case(-ANALYSIS_VELOCITIES[2][3*idx1+idx2], stl_filepath, axis, motion, z_constraint, z_to_waterline)
-                    run_case()
-                    time, forces, moments = load_force_data()
-                    fm_vr3_backward_mean[:3, 3 * idx1 + idx2] = np.mean(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr3_backward_std[:3, 3 * idx1 + idx2] = np.std(forces[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr3_backward_mean[3:, 3 * idx1 + idx2] = np.mean(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-                    fm_vr3_backward_std[3:, 3 * idx1 + idx2] = np.std(moments[time > CUTOFF_FRACTION * time[-1]], axis=0)
-
-    # estimate hydrodynamic damping coefficients according to selected model and return them
+    # estimate hydrodynamic damping coefficients and return them
     result = dict()
-    if model_order == 'first':
-        result['linear'] = dict()
-        if motion_direction in ['forward', 'both']:
-            fm_vr1_forward_mean /= ANALYSIS_VELOCITIES[0]
-            fm_vr1_forward_std /= ANALYSIS_VELOCITIES[0]
-            result['linear']['forward'] = {'coefficients': fm_vr1_forward_mean, 'uncertainty': fm_vr1_forward_std}
-        if motion_direction in ['backward', 'both']:
-            fm_vr1_backward_mean /= -ANALYSIS_VELOCITIES[0]
-            fm_vr1_backward_std /= ANALYSIS_VELOCITIES[0]
-            result['linear']['backward'] = {'coefficients': fm_vr1_backward_mean, 'uncertainty': fm_vr1_backward_std}
+    result['linear'] = dict()
+    result['quadratic'] = dict()
 
-    if model_order == 'second_only':
-        result['quadratic'] = dict()
-        if motion_direction in ['forward', 'both']:
-            fm_vr2_forward_mean /= ANALYSIS_VELOCITIES[1] ** 2
-            fm_vr2_forward_std /= ANALYSIS_VELOCITIES[1] ** 2
-            result['quadratic']['forward'] = {'coefficients': fm_vr2_forward_mean, 'uncertainty': fm_vr2_forward_std}
-        if motion_direction in ['backward', 'both']:
-            fm_vr2_backward_mean /= -(ANALYSIS_VELOCITIES[1] ** 2)
-            fm_vr2_backward_std /= ANALYSIS_VELOCITIES[1] ** 2
-            result['quadratic']['backward'] = {'coefficients': fm_vr2_backward_mean, 'uncertainty': fm_vr2_backward_std}
+    if motion_direction in ['forward', 'both']:
+        fm_forward_mean_linear = (fm_vr1_forward_mean * (1 / ANALYSIS_VELOCITIES[0] - 1 / ANALYSIS_VELOCITIES[1])
+                                  + fm_vr2_forward_mean * (ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] ** 3
+                                                           - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1] ** 2))
+        fm_forward_mean_quadratic = (fm_vr2_forward_mean / ANALYSIS_VELOCITIES[1] ** 2
+                                     - fm_forward_mean_linear / ANALYSIS_VELOCITIES[1])
+        fm_forward_std_linear = np.sqrt(
+            (fm_vr1_forward_std * (1 / ANALYSIS_VELOCITIES[0] - 1 / ANALYSIS_VELOCITIES[1])) ** 2
+            + (fm_vr2_forward_std * (ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] ** 3
+                                     - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1] ** 2)) ** 2)
+        fm_forward_std_quadratic = np.sqrt((fm_vr2_forward_std / ANALYSIS_VELOCITIES[1] ** 2) ** 2
+                                           + (fm_forward_std_linear / ANALYSIS_VELOCITIES[1]) ** 2)
+        result['linear']['forward'] = {'coefficients': fm_forward_mean_linear, 'uncertainty': fm_forward_std_linear}
+        result['quadratic']['forward'] = {'coefficients': fm_forward_mean_quadratic, 'uncertainty': fm_forward_std_quadratic}
 
-    if model_order == 'third_only':
-        result['cubic'] = dict()
-        if motion_direction in ['forward', 'both']:
-            fm_vr3_forward_mean[:, :3] /= ANALYSIS_VELOCITIES[2] ** 3
-            fm_vr3_forward_std[:, :3] /= ANALYSIS_VELOCITIES[2] ** 3
-            result['cubic']['forward'] = {'coefficients': fm_vr3_forward_mean, 'uncertainty': fm_vr3_forward_std}
-        if motion_direction in ['backward', 'both']:
-            fm_vr3_backward_mean[:, :3] /= -(ANALYSIS_VELOCITIES[2] ** 3)
-            fm_vr3_backward_std[:, :3] = ANALYSIS_VELOCITIES[2] ** 3
-            result['cubic']['backward'] = {'coefficients': fm_vr3_backward_mean, 'uncertainty': fm_vr3_backward_std}
+    if motion_direction in ['backward', 'both']:
+        fm_backward_mean_linear = (fm_vr1_backward_mean * (1 / -ANALYSIS_VELOCITIES[0] - 1 / -ANALYSIS_VELOCITIES[1])
+                                  + fm_vr2_backward_mean * (-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] ** 3
+                                                           + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1] ** 2))
+        fm_backward_mean_quadratic = (fm_vr2_backward_mean / -ANALYSIS_VELOCITIES[1] ** 2
+                                     - fm_backward_mean_linear / -ANALYSIS_VELOCITIES[1])
+        fm_backward_std_linear = np.sqrt(
+            (fm_vr1_backward_std * (1 / -ANALYSIS_VELOCITIES[0] - 1 / -ANALYSIS_VELOCITIES[1])) ** 2
+            + (fm_vr2_backward_std * (-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] ** 3
+                                     + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1] ** 2)) ** 2)
+        fm_backward_std_quadratic = np.sqrt((fm_vr2_backward_std / -ANALYSIS_VELOCITIES[1] ** 2) ** 2
+                                           + (fm_backward_std_linear / -ANALYSIS_VELOCITIES[1]) ** 2)
 
-    if model_order == 'second':
-        result['linear'] = dict()
-        result['quadratic'] = dict()
-        if motion_direction in ['forward', 'both']:
-            denom = ANALYSIS_VELOCITIES[1] * (ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[0])
-            fm_forward_mean_linear = (fm_vr1_forward_mean / ANALYSIS_VELOCITIES[0]
-                                      - (ANALYSIS_VELOCITIES[0] * fm_vr2_forward_mean - fm_vr1_forward_mean / denom))
-            fm_forward_mean_quadratic = (fm_vr2_forward_mean - fm_vr1_forward_mean / ANALYSIS_VELOCITIES[0]) / denom
-            fm_forward_std_linear = np.sqrt((((denom + ANALYSIS_VELOCITIES[0]) / (ANALYSIS_VELOCITIES[0] * denom)) * fm_vr1_forward_std) ** 2
-                                            + ((ANALYSIS_VELOCITIES[0] / denom) * fm_vr2_forward_std) ** 2)
-            fm_forward_std_quadratic = np.sqrt(((1 / (ANALYSIS_VELOCITIES[0] * denom)) * fm_vr1_forward_std) ** 2
-                                               + ((1 / denom) * fm_vr2_forward_std) ** 2)
-
-            result['linear']['forward'] = {'coefficients': fm_forward_mean_linear, 'uncertainty': fm_forward_std_linear}
-            result['quadratic']['forward'] = {'coefficients': fm_forward_mean_quadratic, 'uncertainty': fm_forward_std_quadratic}
-
-        if motion_direction in ['backward', 'both']:
-            denom = -ANALYSIS_VELOCITIES[1] * (-ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[0])
-            fm_backward_mean_linear = (fm_vr1_backward_mean / -ANALYSIS_VELOCITIES[0]
-                                       - (-ANALYSIS_VELOCITIES[0] * fm_vr2_backward_mean - fm_vr1_backward_mean) / denom)
-            fm_backward_mean_quadratic = (fm_vr2_backward_mean - fm_vr1_backward_mean / -ANALYSIS_VELOCITIES[0]) / denom
-            fm_backward_std_linear = np.sqrt((((denom - ANALYSIS_VELOCITIES[0]) / (-ANALYSIS_VELOCITIES[0] * denom)) * fm_vr1_backward_std) ** 2
-                                             + ((-ANALYSIS_VELOCITIES[0] / denom) * fm_vr2_backward_std) ** 2)
-            fm_backward_std_quadratic = np.sqrt(((1 / (-ANALYSIS_VELOCITIES[0] * denom)) * fm_vr1_backward_std) ** 2
-                                                + ((1 / denom) * fm_vr2_backward_std) ** 2)
-
-            result['linear']['backward'] = {'coefficients': fm_backward_mean_linear, 'uncertainty': fm_backward_std_linear}
-            result['quadratic']['backward'] = {'coefficients': fm_backward_mean_quadratic, 'uncertainty': fm_backward_std_quadratic}
-
-    if model_order == 'third':
-        result['linear'] = dict()
-        result['quadratic'] = dict()
-        result['cubic'] = dict()
-        if motion_direction in ['forward', 'both']:
-
-            fm_forward_mean_cubic = (((fm_vr3_forward_mean / (ANALYSIS_VELOCITIES[2] ** 3))
-                                      - (fm_vr1_forward_mean / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[2] ** 2))
-                                      + (((ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
-                                          * (fm_vr2_forward_mean / ANALYSIS_VELOCITIES[1] ** 2 - fm_vr1_forward_mean
-                                             / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[1])))
-                                         / (ANALYSIS_VELOCITIES[2] ** 2 * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))))
-                                     / (1 - ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[2] ** 2
-                                        - ((ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
-                                           * (ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[1]))
-                                        / (ANALYSIS_VELOCITIES[2] ** 2 * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))))
-            fm_forward_mean_quadratic= ((fm_vr2_forward_mean / ANALYSIS_VELOCITIES[1] ** 2
-                                         - fm_vr1_forward_mean / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[1])
-                                         + fm_forward_mean_cubic * (ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[1]))
-                                        / (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))
-            fm_forward_mean_linear = (fm_vr1_forward_mean / ANALYSIS_VELOCITIES[0]
-                                      - fm_forward_mean_quadratic * ANALYSIS_VELOCITIES[0]
-                                      - fm_forward_mean_cubic * ANALYSIS_VELOCITIES[0] ** 2)
-
-
-            fm_forward_std_cubic = (np.sqrt(((1 / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[2] ** 2)
-                                              - (ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
-                                              / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[1] * ANALYSIS_VELOCITIES[2] ** 2
-                                                 * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))) * fm_vr1_forward_std) ** 2
-                                            + (((ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
-                                                / (ANALYSIS_VELOCITIES[1] ** 2 * ANALYSIS_VELOCITIES[2] ** 2
-                                                   * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))) * fm_vr2_forward_std) ** 2
-                                            + (fm_vr3_forward_std / ANALYSIS_VELOCITIES[2] ** 3) ** 2)
-                                    / np.abs((1 - ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[2] ** 2
-                                              - ((ANALYSIS_VELOCITIES[0] - ANALYSIS_VELOCITIES[2])
-                                                 * (ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[1]))
-                                              / (ANALYSIS_VELOCITIES[2] ** 2 * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1])))))
-            fm_forward_std_quadratic = np.sqrt(((1 / (ANALYSIS_VELOCITIES[0] * ANALYSIS_VELOCITIES[1]
-                                                      * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))) * fm_vr1_forward_std) ** 2
-                                               + ((1 /  (ANALYSIS_VELOCITIES[1] ** 2
-                                                        * (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1]))) * fm_vr2_forward_std) ** 2
-                                               + (((ANALYSIS_VELOCITIES[0] ** 2 / ANALYSIS_VELOCITIES[1] - ANALYSIS_VELOCITIES[1])
-                                                   / (1 - ANALYSIS_VELOCITIES[0] / ANALYSIS_VELOCITIES[1])) * fm_forward_std_cubic) ** 2)
-            fm_forward_std_linear = np.sqrt((fm_vr1_forward_std / ANALYSIS_VELOCITIES[0]) ** 2
-                                            + (fm_forward_std_quadratic * ANALYSIS_VELOCITIES[0]) ** 2
-                                            + (fm_forward_std_cubic * ANALYSIS_VELOCITIES[0] ** 2) ** 2)
-
-
-            result['linear']['forward'] = {'coefficients': fm_forward_mean_linear, 'uncertainty': fm_forward_std_linear}
-            result['quadratic']['forward'] = {'coefficients': fm_forward_mean_quadratic, 'uncertainty': fm_forward_std_quadratic}
-            result['cubic']['forward'] = {'coefficients': fm_forward_mean_cubic, 'uncertainty': fm_forward_std_cubic}
-
-        if motion_direction in ['backward', 'both']:
-            fm_backward_mean_cubic = (((fm_vr3_backward_mean / (-ANALYSIS_VELOCITIES[2] ** 3))
-                                       - (fm_vr1_backward_mean / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[2] ** 2))
-                                       + (((-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
-                                           * (fm_vr2_backward_mean / -ANALYSIS_VELOCITIES[1] ** 2 - fm_vr1_backward_mean
-                                              / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[1])))
-                                          / (-ANALYSIS_VELOCITIES[2] ** 2 * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))))
-                                      / (1 + ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[2] ** 2
-                                         - ((-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
-                                            * (-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[1]))
-                                         / (-ANALYSIS_VELOCITIES[2] ** 2 * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))))
-            fm_backward_mean_quadratic = ((fm_vr2_backward_mean / -ANALYSIS_VELOCITIES[1] ** 2
-                                           - fm_vr1_backward_mean / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[1])
-                                           + fm_backward_mean_cubic * (-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[1]))
-                                          / (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))
-            fm_backward_mean_linear = (fm_vr1_backward_mean / -ANALYSIS_VELOCITIES[0]
-                                       - fm_backward_mean_quadratic * -ANALYSIS_VELOCITIES[0]
-                                       - fm_backward_mean_cubic * -ANALYSIS_VELOCITIES[0] ** 2)
-            fm_backward_std_cubic = (np.sqrt(((1 / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[2] ** 2)
-                                               - (-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
-                                               / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[1] * -ANALYSIS_VELOCITIES[2] ** 2
-                                                  * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))) * fm_vr1_backward_std) ** 2
-                                             + (((-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
-                                                 / (-ANALYSIS_VELOCITIES[1] ** 2 * -ANALYSIS_VELOCITIES[2] ** 2
-                                                    * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))) * fm_vr2_backward_std) ** 2
-                                             + (fm_vr3_backward_std / -ANALYSIS_VELOCITIES[2] ** 3) ** 2)
-                                     / np.abs((1 + ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[2] ** 2
-                                               - ((-ANALYSIS_VELOCITIES[0] + ANALYSIS_VELOCITIES[2])
-                                                  * (-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[1]))
-                                               / (-ANALYSIS_VELOCITIES[2] ** 2 * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1])))))
-            fm_backward_std_quadratic = np.sqrt(((1 / (-ANALYSIS_VELOCITIES[0] * -ANALYSIS_VELOCITIES[1]
-                                                       * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))) * fm_vr1_backward_std) ** 2
-                                                + ((1 /  (-ANALYSIS_VELOCITIES[1] ** 2
-                                                          * (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1]))) * fm_vr2_backward_std) ** 2
-                                                +(((-ANALYSIS_VELOCITIES[0] ** 2 / -ANALYSIS_VELOCITIES[1] + ANALYSIS_VELOCITIES[1])
-                                                   / (1 + ANALYSIS_VELOCITIES[0] / -ANALYSIS_VELOCITIES[1])) * fm_backward_std_cubic) ** 2)
-            fm_backward_std_linear = np.sqrt((fm_vr1_backward_std / -ANALYSIS_VELOCITIES[0]) ** 2
-                                             + (fm_backward_std_quadratic * -ANALYSIS_VELOCITIES[0]) ** 2
-                                             + (fm_backward_std_cubic * -ANALYSIS_VELOCITIES[0] ** 2) ** 2)
-
-            result['linear']['backward'] = {'coefficients': fm_backward_mean_linear, 'uncertainty': fm_backward_std_linear}
-            result['quadratic']['backward'] = {'coefficients': fm_backward_mean_quadratic, 'uncertainty': fm_backward_std_quadratic}
-            result['cubic']['backward'] = {'coefficients': fm_backward_mean_cubic, 'uncertainty': fm_backward_std_cubic}
+        result['linear']['backward'] = {'coefficients': fm_backward_mean_linear, 'uncertainty': fm_backward_std_linear}
+        result['quadratic']['backward'] = {'coefficients': fm_backward_mean_quadratic, 'uncertainty': fm_backward_std_quadratic}
 
     return result
 
@@ -486,15 +329,7 @@ if __name__ == "__main__":
     # run analysis to get vehicle coefficients
     print(analyze_model('./models/remus.stl', 'submerged', 0., 'second_only', 'forward'))
     print(analyze_model('./models/aries.stl', 'submerged', 0., 'second_only', 'forward'))
-    print(analyze_model('./models/otter.stl', 'floating', -0.09, 'second_only', 'forward'))
-    
-    # run vehicle cases used to verify quadratic dependencies
-    run_model('./models/remus.stl', './results/remus', 
-          [(1., 0.1*np.pi), (2., 0.2*np.pi), (3., 0.3*np.pi)], 'submerged', 0.)
-    run_model('./models/aries.stl', './results/aries', 
-              [(2., 0.2*np.pi), (4., 0.4*np.pi), (6., 0.6*np.pi)], 'submerged', 0.)
-    run_model('./models/otter.stl', './results/otter', 
-              [(1., 0.1*np.pi), (2., 0.2*np.pi), (3., 0.3*np.pi)], 'floating', -0.09)
+    print(analyze_model('./models/otter.stl', 'floating', 0.04, 'second_only', 'forward'))\
     
     # run sphere cases
     run_model('./models/sphere_10cm.stl', './results/sphere_10cm/submerged_positive', 
