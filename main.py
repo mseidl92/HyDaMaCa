@@ -327,9 +327,9 @@ def run_case() -> None:
 # script runner
 if __name__ == "__main__":
     # run analysis to get vehicle coefficients
-    print(analyze_model('./models/remus.stl', 'submerged', 0., 'second_only', 'forward'))
-    print(analyze_model('./models/aries.stl', 'submerged', 0., 'second_only', 'forward'))
-    print(analyze_model('./models/otter.stl', 'floating', 0.04, 'second_only', 'forward'))\
+    print(analyze_model('./models/remus.stl', 'submerged', 0., 'forward'))
+    print(analyze_model('./models/aries.stl', 'submerged', 0., 'forward'))
+    print(analyze_model('./models/otter.stl', 'floating', 0.04, 'forward'))
     
     # run sphere cases
     run_model('./models/sphere_10cm.stl', './results/sphere_10cm/submerged_positive', 
